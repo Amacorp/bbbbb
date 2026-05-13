@@ -1,7 +1,5 @@
 {
-  "log": {
-    "loglevel": "warning"
-  },
+  "log": { "loglevel": "warning" },
   "inbounds": [
     {
       "tag": "vless-in",
@@ -9,27 +7,17 @@
       "protocol": "vless",
       "settings": {
         "clients": [
-          {
-            "id": "2166797c-f912-4a24-a467-c5d0c216cc2d",
-            "flow": ""
-          }
+          { "id": "2166797c-f912-4a24-a467-c5d0c216cc2d", "flow": "" }
         ],
         "decryption": "none"
       },
       "streamSettings": {
-        "network": "xhttp",
-        "xhttpSettings": {
-          "mode": "packet-up",
-          "path": "/"
-        }
+        "network": "ws",
+        "wsSettings": { "path": "/ws" }
       }
     }
   ],
   "outbounds": [
-    {
-      "tag": "direct",
-      "protocol": "freedom",
-      "settings": {}
-    }
+    { "tag": "direct", "protocol": "freedom", "settings": {} }
   ]
 }
