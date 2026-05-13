@@ -2,7 +2,9 @@
   "name": "g2ray",
   "build": { "dockerfile": "Dockerfile", "context": "." },
 
-  "postStartCommand": "bash -lc 'sudo pkill xray || true; nohup sudo /usr/local/bin/xray run -c /etc/xray/g2ray.json >/tmp/xray.log 2>&1 &'",
+  "remoteUser": "root",
+
+  "postStartCommand": "bash -lc 'pgrep xray >/dev/null || nohup /usr/local/bin/xray run -c /etc/xray/g2ray.json >/tmp/xray.log 2>&1 &'",
 
   "portsAttributes": {
     "443": { "label": "g2ray", "protocol": "http", "onAutoForward": "silent" }
