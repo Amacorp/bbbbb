@@ -7,9 +7,9 @@
   },
 
   "postStartCommand": {
-    "expose": "gh codespace ports visibility 443:public -c $CODESPACE_NAME || true",
-    "start": "sudo pkill xray || true; nohup sudo /usr/local/bin/xray run -c /etc/xray/g2ray.json >/tmp/xray.log 2>&1 &"
-  },
+  "expose": "gh codespace ports visibility 443:public -c $CODESPACE_NAME || true",
+  "start": "sudo pkill xray || true; nohup sudo /usr/local/bin/xray run -c /etc/xray/g2ray.json >/tmp/xray.log 2>&1 &"
+}
 
   "portsAttributes": {
     "443": { "label": "g2ray", "protocol": "http", "onAutoForward": "silent" }
