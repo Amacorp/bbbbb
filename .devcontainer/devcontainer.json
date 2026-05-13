@@ -1,15 +1,11 @@
 {
   "name": "g2ray",
   "build": { "dockerfile": "Dockerfile", "context": "." },
-  "features": {
-    "ghcr.io/devcontainers/features/common-utils:2": { "installZsh": false },
-    "ghcr.io/devcontainers/features/github-cli:1": { "version": "latest" }
-  },
 
-  "postStartCommand": "bash -lc 'GH_TOKEN=$GITHUB_TOKEN gh codespace ports visibility 443:public -c \"$CODESPACE_NAME\" || true; sudo pkill xray || true; nohup sudo /usr/local/bin/xray run -c /etc/xray/g2ray.json >/tmp/xray.log 2>&1 &'",
+  "postStartCommand": "bash -lc 'sudo pkill xray || true; nohup sudo /usr/local/bin/xray run -c /etc/xray/g2ray.json >/tmp/xray.log 2>&1 &'",
 
   "portsAttributes": {
-    "443": { "label": "g2ray", "protocol": \"http\", "onAutoForward": "silent" }
+    "443": { "label": "g2ray", "protocol": "http", "onAutoForward": "silent" }
   },
   "forwardPorts": [443],
   "hostRequirements": { "cpus": 2 }
