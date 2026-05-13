@@ -13,6 +13,6 @@ RUN apt-get update \
  && /tmp/setup.sh \
  && rm /tmp/setup.sh
 
-EXPOSE 443
+EXPOSE 8080
 
 CMD ["/usr/local/bin/xray", "run", "-c", "/etc/xray/g2ray.json"]
