@@ -1,0 +1,75 @@
+name: Create g2ray Codespace + VLESS link
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  create:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.CODESPACE_PAT }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Read UUID from g2ray config
+        id: uuid
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+          UUID=$(jq -r '.inbounds[0].settings.clients[0].id' .devcontainer/config.json)
+          echo "uuid=$UUID" >> "$GITHUB_OUTPUT"
+
+      - name: Create Codespace (for this repo)
+        id: cs
+        run: |
+          # Create a codespace for the authenticated user in this repository.
+          # This endpoint requires `codespace` scope on the token.
+          # GitHub Docs: "Create a codespace in a repository" <!--citation:5-->
+          NAME=$(gh api -X POST "repos/${GITHUB_REPOSITORY}/codespaces" \
+            -f ref="main" \
+            -f devcontainer_path=".devcontainer/devcontainer.json" \
+            --jq .name)
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "Created codespace: $NAME"
+
+      - name: Wait until Codespace is Available
+        run: |
+          NAME="${{ steps.cs.outputs.name }}"
+          for i in $(seq 1 90); do
+            STATE=$(gh api "user/codespaces/$NAME" --jq .state)
+            echo "State: $STATE"
+            if [ "$STATE" = "Available" ]; then
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "Codespace did not become Available in time."
+          exit 1
+
+      - name: Build VLESS link
+        id: link
+        run: |
+          NAME="${{ steps.cs.outputs.name }}"
+          UUID="${{ steps.uuid.outputs.uuid }}"
+          HOST="${NAME}-443.app.github.dev"
+
+          # g2ray uses VLESS + TLS + xhttp (packet-up) + path "/"
+          # from .devcontainer/config.json <!--citation:4-->
+          VLESS="vless://${UUID}@${HOST}:443?encryption=none&security=tls&type=xhttp&mode=packet-up&path=%2F&sni=${HOST}#g2ray"
+
+          echo "$VLESS" | tee vless.txt
+          echo "vless=$VLESS" >> "$GITHUB_OUTPUT"
+
+      - name: Publish in workflow summary
+        run: |
+          echo "### g2ray VLESS link" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`${{ steps.link.outputs.vless }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Codespace name: \`${{ steps.cs.outputs.name }}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload as artifact (easy to download on mobile)
+        uses: actions/upload-artifact@v4
+        with:
+          name: vless-link
+          path: vless.txt
