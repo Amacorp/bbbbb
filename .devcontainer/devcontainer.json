@@ -2,13 +2,17 @@
   "name": "g2ray",
   "build": { "dockerfile": "Dockerfile", "context": "." },
 
-  "remoteUser": "root",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": { "installZsh": false },
+    "ghcr.io/devcontainers/features/sshd:1": { "version": "latest" }
+  },
 
   "postStartCommand": "bash -lc 'pgrep xray >/dev/null || nohup /usr/local/bin/xray run -c /etc/xray/g2ray.json >/tmp/xray.log 2>&1 &'",
 
+  "forwardPorts": [8080],
   "portsAttributes": {
-    "443": { "label": "g2ray", "protocol": "http", "onAutoForward": "silent" }
+    "8080": { "label": "g2ray", "protocol": "http", "onAutoForward": "silent" }
   },
-  "forwardPorts": [443],
+
   "hostRequirements": { "cpus": 2 }
 }
