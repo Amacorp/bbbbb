@@ -1,0 +1,100 @@
+name: g2ray - Fresh Codespace + Public Port + VLESS(WS)
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ secrets.CODESPACE_PAT }}
+      PORT: "8080"
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install jq
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y jq
+
+      - name: Read UUID from .devcontainer/config.json
+        id: uuid
+        run: |
+          UUID=$(jq -r '.inbounds[0].settings.clients[0].id' .devcontainer/config.json)
+          echo "uuid=$UUID" >> "$GITHUB_OUTPUT"
+
+      - name: Delete old codespaces for this repo (so devcontainer changes apply)
+        run: |
+          set -euo pipefail
+          gh codespace list -R "${GITHUB_REPOSITORY}" --json name --jq '.[].name' | while read -r cs; do
+            echo "Deleting codespace: $cs"
+            gh codespace delete -c "$cs" --force
+          done
+
+      - name: Create new codespace
+        id: cs
+        run: |
+          set -euo pipefail
+          NAME=$(gh api -X POST "repos/${GITHUB_REPOSITORY}/codespaces" \
+            -f ref="main" \
+            -f devcontainer_path=".devcontainer/devcontainer.json" \
+            --jq .name)
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
+          echo "Created: $NAME"
+
+      - name: Wait until Available
+        run: |
+          set -euo pipefail
+          NAME="${{ steps.cs.outputs.name }}"
+          for i in $(seq 1 180); do
+            STATE=$(gh api "user/codespaces/$NAME" --jq .state)
+            echo "State: $STATE"
+            if [ "$STATE" = "Available" ]; then exit 0; fi
+            sleep 5
+          done
+          exit 1
+
+      - name: Wait for port to appear then make it public
+        run: |
+          set -euo pipefail
+          NAME="${{ steps.cs.outputs.name }}"
+          PORT="${{ env.PORT }}"
+
+          for i in $(seq 1 180); do
+            FOUND=$(gh codespace ports -c "$NAME" --json sourcePort --jq "[.[]|select(.sourcePort==${PORT})]|length")
+            echo "FOUND port ${PORT}: $FOUND"
+            if [ "$FOUND" -ge 1 ]; then break; fi
+            sleep 5
+          done
+
+          gh codespace ports visibility "${PORT}:public" -c "$NAME"
+          gh codespace ports -c "$NAME" --json sourcePort,visibility,browseUrl,label
+
+      - name: Debug (now ssh should work): show xray + listening port + log tail
+        run: |
+          set -euo pipefail
+          NAME="${{ steps.cs.outputs.name }}"
+          gh codespace ssh -c "$NAME" -- "pgrep -a xray || true; ss -lntp | grep ':8080' || true; tail -n 80 /tmp/xray.log || true"
+
+      - name: Build VLESS(WS) link (external TLS is always 443)
+        id: link
+        run: |
+          NAME="${{ steps.cs.outputs.name }}"
+          UUID="${{ steps.uuid.outputs.uuid }}"
+          HOST="${NAME}-8080.app.github.dev"
+
+          VLESS="vless://${UUID}@${HOST}:443?encryption=none&security=tls&type=ws&path=%2Fws&host=${HOST}&sni=${HOST}#g2ray-ws"
+          echo "$VLESS" | tee vless.txt
+          echo "vless=$VLESS" >> "$GITHUB_OUTPUT"
+
+      - name: Publish in workflow summary
+        run: |
+          echo "### VLESS (WS) link" >> "$GITHUB_STEP_SUMMARY"
+          echo "\`${{ steps.link.outputs.vless }}\`" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vless-link
+          path: vless.txt
